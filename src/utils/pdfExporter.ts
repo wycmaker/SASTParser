@@ -27,15 +27,22 @@ export class PDFExporter {
    */
   private async setupChineseFont(): Promise<void> {
     try {
-      // 直接使用 TaipeiSansTCBeta-Regular.ttf 字型
-      await this.addTaipeiSansFont();
-
-      // 設定字型
-      this.doc.setFont("TaipeiSansTC");
-      this.doc.setFontSize(12);
-      console.log("台北黑體字型設定成功");
+      // 嘗試載入台北黑體字型
+      const fontLoaded = await this.addTaipeiSansFont();
+      
+      if (fontLoaded) {
+        // 設定字型
+        this.doc.setFont("TaipeiSansTC");
+        this.doc.setFontSize(12);
+        console.log("台北黑體字型設定成功");
+      } else {
+        // 字型載入失敗，使用預設字型
+        console.warn("台北黑體字型載入失敗，使用預設字型");
+        this.doc.setFont("helvetica");
+        this.doc.setFontSize(12);
+      }
     } catch (error) {
-      console.warn("台北黑體字型設定失敗，使用預設字型:", error);
+      console.warn("字型設定失敗，使用預設字型:", error);
       this.doc.setFont("helvetica");
       this.doc.setFontSize(12);
     }
@@ -44,7 +51,7 @@ export class PDFExporter {
   /**
    * 添加台北黑體字型
    */
-  private async addTaipeiSansFont(): Promise<void> {
+  private async addTaipeiSansFont(): Promise<boolean> {
     try {
       // 字型檔案的 base64 編碼
       const fontData = await this.getTaipeiSansFontData();
@@ -52,12 +59,14 @@ export class PDFExporter {
       if (fontData) {
         this.doc.addFont(fontData, "TaipeiSansTC", "normal");
         console.log("台北黑體字型添加成功");
+        return true;
       } else {
-        throw new Error("無法獲取台北黑體字型資料");
+        console.warn("無法獲取台北黑體字型資料");
+        return false;
       }
     } catch (error) {
       console.warn("無法添加台北黑體字型:", error);
-      throw error;
+      return false;
     }
   }
 
@@ -66,10 +75,27 @@ export class PDFExporter {
    */
   private async getTaipeiSansFontData(): Promise<string | null> {
     try {
-      // 使用 FontLoader 載入字型檔案
-      const fontPath = "/fonts/TaipeiSansTCBeta-Regular.ttf";
-      const fontData = await FontLoader.loadTTFFont(fontPath);
-      return fontData;
+      // 嘗試多個字型路徑
+      const fontPaths = [
+        "/fonts/TaipeiSansTCBeta-Regular.ttf",
+        "/SASTParser/fonts/TaipeiSansTCBeta-Regular.ttf",
+        "./fonts/TaipeiSansTCBeta-Regular.ttf"
+      ];
+      
+      for (const fontPath of fontPaths) {
+        try {
+          const fontData = await FontLoader.loadTTFFont(fontPath);
+          if (fontData) {
+            console.log(`成功載入字型: ${fontPath}`);
+            return fontData;
+          }
+        } catch (error) {
+          console.warn(`字型路徑 ${fontPath} 載入失敗:`, error);
+        }
+      }
+      
+      console.warn("所有字型路徑都載入失敗，將使用預設字型");
+      return null;
     } catch (error) {
       console.warn("載入台北黑體字型失敗:", error);
       return null;
